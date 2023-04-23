@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 spidev = "0.5.1"
-gpiocdev = "0.4.2"
+gpio-cdev = "0.5.1"

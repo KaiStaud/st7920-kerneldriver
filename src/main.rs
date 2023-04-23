@@ -45,6 +45,14 @@ fn send_cmd(&mut self,cmd:u8) {
    self.spi.write(&[(cmd<<4)&0xf0]);  // send the lower nibble
    self.delay(50);
    self.cs.request(LineRequestFlags::OUTPUT, 0, "blinky").unwrap();
+   /*
+    HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET);  // PUll the CS high
+	SendByteSPI(0xf8+(0<<1));  // send the SYNC + RS(0)
+	SendByteSPI(cmd&0xf0);  // send the higher nibble first
+	SendByteSPI((cmd<<4)&0xf0);  // send the lower nibble
+	//self.delay(50);
+	HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET);  // PUll the CS LOW
+*/
 }
 
 fn send_data(&mut self,data:u8){
@@ -96,7 +104,8 @@ pub fn set_pixel(&mut self,x:i32,y:i32,set:bool)->bool{
 }
 
 pub fn draw_fb(&mut self){
-	for y in 0..64
+  let mut buffer_index = 2*8+16*16;	
+   for y in 0..64
 	{
 		if y <32 
 		{
@@ -105,8 +114,9 @@ pub fn draw_fb(&mut self){
                 // In extended instruction mode, vertical and horizontal coordinates must be specified before sending data in.
 				self.send_cmd(0x80 | y);	// Vertical coordinate of the screen is specified first. (0-31)
 				self.send_cmd(0x80 | x);	// Then horizontal coordinate of the screen is specified. (0-8)
-				self.send_data(0x00);//self.graphic[(2*x + 16*y) as usize]);	// Data to the upper byte is sent to the coordinate.
-				self.send_data(0x00);//self.graphic[(2*x+1 + 16*y) as usize]);	// Data to the lower byte is sent to the coordinate.
+				buffer_index  = 2*x as u32+16*y as u32 ;
+				self.send_data(self.graphic[buffer_index as usize]);	// Data to the upper byte is sent to the coordinate.
+				self.send_data(self.graphic[(buffer_index+1) as usize]);	// Data to the lower byte is sent to the coordinate.
 			}
 		}
 		else
@@ -116,8 +126,9 @@ pub fn draw_fb(&mut self){
               // Actions performed as same as the upper half screen.
 			  self.send_cmd(0x80 | (y-32));// Vertical coordinate must be scaled back to 0-31 as it is dealing with another half of the screen.
 			  self.send_cmd(0x88 | x);
-			  self.send_data(0xFF);//self.graphic[(2*x + 16*y) as usize]);
-			  self.send_data(0xFF);//self.graphic[(2*x+1 + 16*y)as usize]);
+			buffer_index  = 2*x as u32+16*y as u32 ;
+			  self.send_data(self.graphic[(buffer_index) as usize]);
+			  self.send_data(self.graphic[(buffer_index+1)as usize]);
 			}
         }
     }
@@ -127,11 +138,12 @@ pub fn draw_fb(&mut self){
 
 fn main() {
     println!("Hello, world!");
-    let mut buf : [u8;1042] = [0xFF;1042];
+    let mut buf : [u8;1042] = [0x0;1042];
     let spi6 = create_spi().unwrap();
     let mut chip = Chip::new("/dev/gpiochip0").unwrap();
     let handle = chip
         .get_line(16).unwrap();
+ //       .request(LineRequestFlags::OUTPUT, 1, "blinky")?;
     let mut glcd = St7920Glcd{
         spi: spi6,
         cs: handle,
