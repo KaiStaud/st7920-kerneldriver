@@ -1,0 +1,2 @@
+# TODO
+bitmaps ermöglichen
