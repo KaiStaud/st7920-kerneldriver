@@ -12,6 +12,7 @@ tested with following Targets:
 - cs with gpio or hardware cs
  
 # To-Do:
+- Docs 
 - brightness
 - on/off
 - contrast
