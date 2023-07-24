@@ -26,3 +26,4 @@ tested with following Targets:
 # t.b.d:
 - c-style library top wrap ioctl
 - dma sometime bugged
+- Split in middle (two pseudeo Displays)
