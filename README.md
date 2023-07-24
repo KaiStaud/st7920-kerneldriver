@@ -19,7 +19,9 @@ tested with following Targets:
 - flip Display
 - Font size
 - invert full rows
+## packaging and deployment
 - build as dkms-debian package
+- provide as yocto-layer
 
 # t.b.d:
 - c-style library top wrap ioctl
