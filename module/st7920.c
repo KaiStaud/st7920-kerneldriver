@@ -11,6 +11,8 @@
 #define START_PIXEL 0 // 0 for 8x8 2 for 5x8
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
+#define USE_SOFTCS 0
+
 /* Meta Information */
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Kai Staud");
@@ -115,7 +117,8 @@ static int glcd_probe(struct spi_device *client) {
 	device = client;
 	/* Allocate driver data */
 	printk(KERN_INFO "st7920: Loading lkm!\n");
-   
+
+#if USE_SOFTCS  
    err = gpio_request( rs_pin, "soft-cs" );
    if (err) {
      printk(KERN_ERR "st7920: gpio_request %d\n",err);
@@ -125,10 +128,11 @@ static int glcd_probe(struct spi_device *client) {
    err = gpio_direction_output( 115, 0 );
    if (err) {
      printk(KERN_ERR "st7920: gpio_dir_output %d\n", err);
- //    gpio_free( 4 );
      return -1;
    }
    printk(KERN_INFO "st7920: gpio %d configured\n",rs_pin);
+#endif
+
 init_lcd();
 set_graphic_mode();
 clear_screen();
@@ -149,8 +153,10 @@ static int glcd_remove(struct spi_device *client) {
 	class_destroy( glcd_class );	
 	// deallocate device major number
 	unregister_chrdev_region( MAJOR(dev_number), MINOR_NUM_COUNT );
-	
-	gpio_free(rs_pin);
+	#if USE_SOFTCS  
+		gpio_free(rs_pin);
+	#else
+
 	return 0;
 }
 
@@ -162,13 +168,16 @@ static void send_cmd(char cmd){
 	buffer[0] = 0xf8+(0<<1);
 	buffer[1] = cmd&0xf0;
 	buffer[2] = (cmd<<4)&0xf0;
+#if USE_SOFTCS  
     gpio_set_value(rs_pin, 1);
+#else
 	if(spi_write(device, buffer, 3) <0)
 	{
 		printk(KERN_ERR "st7920: Error: Failed to transmit cmd!\n");
 	}
+#if USE_SOFTCS  
     gpio_set_value(rs_pin, 0);
-
+#else
 }
 
 static int send_data(char data)
@@ -177,14 +186,19 @@ static int send_data(char data)
 	buffer[0] = 0xf8+(1<<1);
 	buffer[1] = data&0xf0;
 	buffer[2] = (data<<4)&0xf0;
+#if USE_SOFTCS  
     gpio_set_value(rs_pin, 1);
+#else
+
 	if(spi_write(device, buffer, 3) <0)
 	{
 		printk(KERN_ERR "st7920: Error: Failed to transmit data!\n");
 		return -1;
 	}
+
+#if USE_SOFTCS  
     gpio_set_value(rs_pin, 0);
-	return 0;
+#else	return 0;
 }
 
 static void init_lcd(void)

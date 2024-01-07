@@ -60,7 +60,7 @@ tested with following Targets:
  
 # FAQ / Common Issues
 - Device is enumerated correctly, but display does not display
-	the chip-select signal is not driven. Build the module with "soft-cs pinnumber" to drive the cs as a regular gpio.
+	the chip-select signal is not driven. Build the module with soft-cs (by defininig your gpionumber and setting #define USE_SOFTCS 1 in st7920.c) to drive the cs as a regular gpio:
 	CS or Soft-CS should toggle 1-0-1 before and after each 3 bytes
 
 - Kernel-Log shows "unable to send data /cmd"
