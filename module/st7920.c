@@ -5,7 +5,7 @@
 #include <linux/gpio.h>
 #include "font_5x8.h"
 
-#define rs_pin 16
+#define rs_pin 115
 #define MAX_ROW 8
 #define CHAR_WIDTH 6 
 #define START_PIXEL 0 // 0 for 8x8 2 for 5x8
@@ -116,13 +116,13 @@ static int glcd_probe(struct spi_device *client) {
 	/* Allocate driver data */
 	printk(KERN_INFO "st7920: Loading lkm!\n");
    
-   err = gpio_request( 16, "rpi-gpio-16" );
+   err = gpio_request( rs_pin, "soft-cs" );
    if (err) {
      printk(KERN_ERR "st7920: gpio_request %d\n",err);
      return -1;
 	}
 
-   err = gpio_direction_output( 16, 0 );
+   err = gpio_direction_output( 115, 0 );
    if (err) {
      printk(KERN_ERR "st7920: gpio_dir_output %d\n", err);
  //    gpio_free( 4 );
@@ -134,7 +134,6 @@ set_graphic_mode();
 clear_screen();
 screen_test();
 printk(KERN_INFO "st7920: gpio-free %d",rs_pin);
-gpio_free(rs_pin);
 	return 0;
 }
 
@@ -142,7 +141,7 @@ gpio_free(rs_pin);
  * @brief This function is called on unloading the driver 
  */
 
-static void glcd_remove(struct spi_device *client) {
+static int glcd_remove(struct spi_device *client) {
 	printk(KERN_INFO "st7920 - removing glcd from system!\n");
 
 	cdev_del( &glcd_cdev);
@@ -150,8 +149,9 @@ static void glcd_remove(struct spi_device *client) {
 	class_destroy( glcd_class );	
 	// deallocate device major number
 	unregister_chrdev_region( MAJOR(dev_number), MINOR_NUM_COUNT );
-
+	
 	gpio_free(rs_pin);
+	return 0;
 }
 
 
@@ -252,8 +252,6 @@ for (int y=0;y<32;y++)
 
 static void screen_test(void){
 	printk("st7920: testing screen");
-	//glcd_printf("HELLO WORLD",0,0); 
-	//glcd_printf("oh boy\r\nits really\r\nhot in here",1,2);
 	zip_pixels();
 	draw_fb();	
 }
@@ -266,36 +264,6 @@ fb[y][x]= set;
 static void draw_fb(void)
 {
 	block_write();
-/*
-  u32 buffer_index;	
-   for (int y=0;y<64;y++)
-	{
-		if (y <32) 
-		{
-			for (int x=0;x<8;x++)	// Draws top half of the screen.
-			{			
-                // In extended instruction mode, vertical and horizontal coordinates must be specified before sending data in.
-				send_cmd(0x80 | y);	// Vertical coordinate of the screen is specified first. (0-31)
-				send_cmd(0x80 | x);	// Then horizontal coordinate of the screen is specified. (0-8)
-				buffer_index  = 2*x+16*y;
-				send_data(graphic_buffer[buffer_index]);	// Data to the upper byte is sent to the coordinate.
-				send_data(graphic_buffer[buffer_index+1]);	// Data to the lower byte is sent to the coordinate.
-			}
-		}
-		else
-		{
-			for (int x=0;x<8;x++)	// Draws bottom half of the screen.
-			{
-              // Actions performed as same as the upper half screen.
-			  send_cmd(0x80 | (y-32));// Vertical coordinate must be scaled back to 0-31 as it is dealing with another half of the screen.
-			  send_cmd(0x88 | x);
-			buffer_index  = 2*x+16*y;
-			  send_data(graphic_buffer[buffer_index]);
-			  send_data(graphic_buffer[buffer_index+1]);
-			}
-        }
-    }
-*/	
 }
 
 // Put each 8 pixels into one buffer-byte
