@@ -1,11 +1,11 @@
-Source: hello-dkms
+Source: st7920
 Section: misc
 Priority: optional
-Maintainer: Your Name <your.email@example.com>
-Build-Depends: debhelper (>= 11), dkms
+Maintainer: Kai Staud <kai-staud@web.de>
+Build-Depends: debhelper (>= 11), dkms,git,cmake,make
 Standards-Version: 3.9.8
 
-Package: hello-dkms
+Package: st7920
 Architecture: all
 Depends: dkms (>= 2.1.0)
 Description: Hello World Kernel Module - DKMS
