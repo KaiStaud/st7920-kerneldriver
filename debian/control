@@ -1,0 +1,12 @@
+Source: hello-dkms
+Section: misc
+Priority: optional
+Maintainer: Your Name <your.email@example.com>
+Build-Depends: debhelper (>= 11), dkms
+Standards-Version: 3.9.8
+
+Package: hello-dkms
+Architecture: all
+Depends: dkms (>= 2.1.0)
+Description: Hello World Kernel Module - DKMS
+ This package provides a simple hello-world kernel module using DKMS.
