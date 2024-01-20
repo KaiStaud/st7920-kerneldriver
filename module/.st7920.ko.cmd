@@ -1,0 +1,1 @@
+cmd_/home/kai/kmod/st7920/module/st7920.ko := ld -r -EL  -maarch64elf -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T arch/arm64/module.lds -o /home/kai/kmod/st7920/module/st7920.ko /home/kai/kmod/st7920/module/st7920.o /home/kai/kmod/st7920/module/st7920.mod.o;  true

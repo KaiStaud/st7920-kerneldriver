@@ -57,7 +57,9 @@ tested with following Targets:
 
 # capabilities
 - char device functions: read , write
+- Draw monochrome bitmaps 
 - clear
+- reset
 - userspace Control applikation (lcdctl)
 - spi interface
 - cs with gpio or hardware cs
@@ -74,10 +76,16 @@ tested with following Targets:
 - Screen shows incorrect data
 	The spi-frequency is probably to fast. Provide crisp signals to the lcd to avoid misinterpretation of spi-signals
 
+- Bitmaps are not displayed correctly:
+for testing this converter is used:https://javl.github.io/image2cpp/
+Settings flip "horizontally and vertically". Background set to black. 
+Generate plain bytes or delete the declaration before the array.
+horizontal- 1 bit per pixel
+
+
+
 # To-Do:
-- Files for Reset / Fonts
 - Docs 
-- Draw monochrome bitmaps 
 - brightness
 - on/off
 - contrast
@@ -92,3 +100,4 @@ tested with following Targets:
 - c-style library top wrap ioctl
 - dma sometime bugged
 - Split in middle (two pseudeo Displays)
+

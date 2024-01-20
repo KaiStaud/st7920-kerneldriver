@@ -19,7 +19,7 @@
 			st7920: st7920@0 {
 				compatible = "glcd,st7920";
 				reg = <0x0>;
-				spi-max-frequency = <4000000>;
+				spi-max-frequency = <40000>;
 				spi-bits-per-word = <8>;
 				status = "okay";
 				spi-cs-high;

@@ -1,0 +1,1 @@
+cmd_/home/kai/kmod/st7920/module/Module.symvers :=  sed 's/ko$$/o/'  /home/kai/kmod/st7920/module/modules.order | scripts/mod/modpost -m -a    -o /home/kai/kmod/st7920/module/Module.symvers -e -i Module.symvers -T - 

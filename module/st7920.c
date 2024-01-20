@@ -1,17 +1,15 @@
-#include <linux/module.h>
-#include <linux/delay.h>
-#include <linux/init.h>
 #include "st7920.h"
-#include <linux/gpio.h>
 #include "font_5x8.h"
+#include <linux/delay.h>
+#include <linux/gpio.h>
+#include <linux/init.h>
+#include <linux/module.h>
 
-#define rs_pin 115
+#define rs_pin 16
 #define MAX_ROW 8
-#define CHAR_WIDTH 6 
+#define CHAR_WIDTH 6
 #define START_PIXEL 0 // 0 for 8x8 2 for 5x8
-#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
-
-#define USE_SOFTCS 0
+#define CHECK_BIT(var, pos) ((var) & (1 << (pos)))
 
 /* Meta Information */
 MODULE_LICENSE("GPL");
@@ -19,41 +17,41 @@ MODULE_AUTHOR("Kai Staud");
 MODULE_DESCRIPTION("char device driver for st7920 glcd");
 
 /* file operation structure */
-static struct file_operations glcd_fops =
+static struct file_operations glcd_fops = {
+    .owner = THIS_MODULE,
+    .open = glcd_open,
+    .release = glcd_close,
+    .read = glcd_read,
+    .write = glcd_write,
+    .unlocked_ioctl = glcd_ioctl,
+};
+
+struct st7920
 {
-	.owner = THIS_MODULE,
-	.open  =  glcd_open,
-	.release = glcd_close,
-	.read    = glcd_read,
-	.write   = glcd_write,
-	.unlocked_ioctl	= glcd_ioctl,
+    struct spi_device *client;
 };
 
-struct st7920 {
-	struct spi_device *client;
-};
-
-static struct of_device_id graphic_display_ids[] = {
-	{
-		.compatible = "glcd,st7920",
-	}, { /* sentinel */ }
-};
+static struct of_device_id graphic_display_ids[] = {{
+                                                        .compatible = "glcd,st7920",
+                                                    },
+                                                    {/* sentinel */}};
 MODULE_DEVICE_TABLE(of, graphic_display_ids);
 
 static struct spi_device_id st7920[] = {
-	{"st7920", 0},
-	{ },
+    {"st7920", 0},
+    {},
 };
 MODULE_DEVICE_TABLE(spi, st7920);
 
 static struct spi_driver graphic_display = {
-	.probe = glcd_probe,
-	.remove =  glcd_remove,
-	.id_table = st7920,
-	.driver = {
-		.name = "st7920",
-		.of_match_table = graphic_display_ids,
-	},
+    .probe = glcd_probe,
+    .remove = glcd_remove,
+    .id_table = st7920,
+    .driver =
+        {
+            .name = "st7920",
+            .of_match_table = graphic_display_ids,
+        },
 };
 
 /* private members*/
@@ -63,384 +61,436 @@ u8 fb[64][128];
 u8 graphic_buffer[1042];
 
 /**
- * @brief This function is called on loading the driver 
+ * @brief This function is called on loading the driver
  */
-static int glcd_probe(struct spi_device *client) {
-	
-	u8 err;
-	struct device *dev_ret;
-	printk(KERN_INFO "st7920: setting up chardevice");
-	// dynamically allocate device major number
-	if( alloc_chrdev_region( &dev_number, MINOR_NUM_START , MINOR_NUM_COUNT , DEVICE_NAME ) < 0) 
-	{
-		printk( KERN_DEBUG "ERR: Failed to allocate major number \n" );
-		return -1;
-	}
+static int glcd_probe(struct spi_device *client)
+{
 
-	// create a class structure
-	glcd_class = class_create( THIS_MODULE, CLASS_NAME );
-	
-	if( IS_ERR(glcd_class) )
-	{		
-		unregister_chrdev_region( dev_number, MINOR_NUM_COUNT );
-		printk( KERN_DEBUG "ERR: Failed to create class structure \n" );
-		
-		return PTR_ERR( glcd_class ) ;
-	}
-			
-	// create a device and registers it with sysfs
-	dev_ret = device_create( glcd_class, NULL, dev_number, NULL, DEVICE_NAME );
-	
-	if( IS_ERR(dev_ret) )
-	{
-		class_destroy( glcd_class );
-		unregister_chrdev_region( dev_number, MINOR_NUM_COUNT );
-		printk( KERN_DEBUG "ERR: Failed to create device structure \n" );		
+    u8 err;
+    struct device *dev_ret;
+    printk(KERN_INFO "st7920: setting up chardevice");
+    // dynamically allocate device major number
+    if (alloc_chrdev_region(&dev_number, MINOR_NUM_START, MINOR_NUM_COUNT, DEVICE_NAME) < 0)
+    {
+        printk(KERN_DEBUG "ERR: Failed to allocate major number \n");
+        return -1;
+    }
 
-		return PTR_ERR( dev_ret );
-	}
+    // create a class structure
+    glcd_class = class_create(THIS_MODULE, CLASS_NAME);
 
-	// initialize a cdev structure
-	cdev_init( &glcd_cdev, &glcd_fops);
+    if (IS_ERR(glcd_class))
+    {
+        unregister_chrdev_region(dev_number, MINOR_NUM_COUNT);
+        printk(KERN_DEBUG "ERR: Failed to create class structure \n");
 
-	// add a character device to the system
-	if( cdev_add( &glcd_cdev, dev_number, MINOR_NUM_COUNT) < 0 )
-	{
-		device_destroy( glcd_class, dev_number);
-		class_destroy(  glcd_class );
-		unregister_chrdev_region( dev_number, MINOR_NUM_COUNT );
-		printk( KERN_DEBUG "ERR: Failed to add cdev \n" );		
+        return PTR_ERR(glcd_class);
+    }
 
-		return -1;		
-	}
+    // create a device and registers it with sysfs
+    dev_ret = device_create(glcd_class, NULL, dev_number, NULL, DEVICE_NAME);
 
-	device = client;
-	/* Allocate driver data */
-	printk(KERN_INFO "st7920: Loading lkm!\n");
+    if (IS_ERR(dev_ret))
+    {
+        class_destroy(glcd_class);
+        unregister_chrdev_region(dev_number, MINOR_NUM_COUNT);
+        printk(KERN_DEBUG "ERR: Failed to create device structure \n");
 
-#if USE_SOFTCS  
-   err = gpio_request( rs_pin, "soft-cs" );
-   if (err) {
-     printk(KERN_ERR "st7920: gpio_request %d\n",err);
-     return -1;
-	}
+        return PTR_ERR(dev_ret);
+    }
 
-   err = gpio_direction_output( 115, 0 );
-   if (err) {
-     printk(KERN_ERR "st7920: gpio_dir_output %d\n", err);
-     return -1;
-   }
-   printk(KERN_INFO "st7920: gpio %d configured\n",rs_pin);
-#endif
+    // initialize a cdev structure
+    cdev_init(&glcd_cdev, &glcd_fops);
 
-init_lcd();
-set_graphic_mode();
-clear_screen();
-screen_test();
-printk(KERN_INFO "st7920: gpio-free %d",rs_pin);
-	return 0;
+    // add a character device to the system
+    if (cdev_add(&glcd_cdev, dev_number, MINOR_NUM_COUNT) < 0)
+    {
+        device_destroy(glcd_class, dev_number);
+        class_destroy(glcd_class);
+        unregister_chrdev_region(dev_number, MINOR_NUM_COUNT);
+        printk(KERN_DEBUG "ERR: Failed to add cdev \n");
+
+        return -1;
+    }
+
+    device = client;
+    /* Allocate driver data */
+    printk(KERN_INFO "st7920: Loading lkm!\n");
+
+    err = gpio_request(16, "rpi-gpio-16");
+    if (err)
+    {
+        printk(KERN_ERR "st7920: gpio_request %d\n", err);
+        return -1;
+    }
+
+    err = gpio_direction_output(16, 0);
+    if (err)
+    {
+        printk(KERN_ERR "st7920: gpio_dir_output %d\n", err);
+        //    gpio_free( 4 );
+        return -1;
+    }
+    printk(KERN_INFO "st7920: gpio %d configured\n", rs_pin);
+    init_lcd();
+    set_graphic_mode();
+    clear_screen();
+    screen_test();
+    printk(KERN_INFO "st7920: gpio-free %d", rs_pin);
+    gpio_free(rs_pin);
+    return 0;
 }
 
 /**
- * @brief This function is called on unloading the driver 
+ * @brief This function is called on unloading the driver
  */
 
-static int glcd_remove(struct spi_device *client) {
-	printk(KERN_INFO "st7920 - removing glcd from system!\n");
+static void glcd_remove(struct spi_device *client)
+{
+    printk(KERN_INFO "st7920 - removing glcd from system!\n");
 
-	cdev_del( &glcd_cdev);
-	device_destroy( glcd_class, dev_number );
-	class_destroy( glcd_class );	
-	// deallocate device major number
-	unregister_chrdev_region( MAJOR(dev_number), MINOR_NUM_COUNT );
-	#if USE_SOFTCS  
-		gpio_free(rs_pin);
-	#else
+    cdev_del(&glcd_cdev);
+    device_destroy(glcd_class, dev_number);
+    class_destroy(glcd_class);
+    // deallocate device major number
+    unregister_chrdev_region(MAJOR(dev_number), MINOR_NUM_COUNT);
 
-	return 0;
+    gpio_free(rs_pin);
 }
 
-
 /* Low level spi functions*/
-static void send_cmd(char cmd){
-	//printk("st7920: sending cmd into the void\n");
-	u8 buffer[3];
-	buffer[0] = 0xf8+(0<<1);
-	buffer[1] = cmd&0xf0;
-	buffer[2] = (cmd<<4)&0xf0;
-#if USE_SOFTCS  
+static void send_cmd(char cmd)
+{
+    // printk("st7920: sending cmd into the void\n");
+    u8 buffer[3];
+    buffer[0] = 0xf8 + (0 << 1);
+    buffer[1] = cmd & 0xf0;
+    buffer[2] = (cmd << 4) & 0xf0;
     gpio_set_value(rs_pin, 1);
-#else
-	if(spi_write(device, buffer, 3) <0)
-	{
-		printk(KERN_ERR "st7920: Error: Failed to transmit cmd!\n");
-	}
-#if USE_SOFTCS  
+    if (spi_write(device, buffer, 3) < 0)
+    {
+        printk(KERN_ERR "st7920: Error: Failed to transmit cmd!\n");
+    }
     gpio_set_value(rs_pin, 0);
-#else
 }
 
 static int send_data(char data)
 {
-	u8 buffer[3];
-	buffer[0] = 0xf8+(1<<1);
-	buffer[1] = data&0xf0;
-	buffer[2] = (data<<4)&0xf0;
-#if USE_SOFTCS  
+    u8 buffer[3];
+    buffer[0] = 0xf8 + (1 << 1);
+    buffer[1] = data & 0xf0;
+    buffer[2] = (data << 4) & 0xf0;
     gpio_set_value(rs_pin, 1);
-#else
-
-	if(spi_write(device, buffer, 3) <0)
-	{
-		printk(KERN_ERR "st7920: Error: Failed to transmit data!\n");
-		return -1;
-	}
-
-#if USE_SOFTCS  
+    if (spi_write(device, buffer, 3) < 0)
+    {
+        printk(KERN_ERR "st7920: Error: Failed to transmit data!\n");
+        return -1;
+    }
     gpio_set_value(rs_pin, 0);
-#else	return 0;
+    return 0;
 }
 
 static void init_lcd(void)
 {
-	printk("st7920: Initializing lcd\n");
-	gpio_set_value(rs_pin, 0); //   self.write_pin(false);  // RESET=0
-	msleep(10);   // wait for 10ms
-    gpio_set_value(rs_pin, 1);  // RESET=1
-    msleep(50);   //wait for >40 ms
-	send_cmd(0x30);  // 8bit mode
-	usleep_range(110,120);  //  >100us delay
-	send_cmd(0x30);  // 8bit mode
-	usleep_range(40,50);  // >37us delay
-	send_cmd(0x08);  // D=0, C=0, B=0
-	fsleep(110);  // >100us delay
-	send_cmd(0x01);  // clear screen
-    msleep(12);  // >10 ms delay
-	send_cmd(0x06);  // cursor increment right no shift
-	msleep(1);  // 1ms delay
-	send_cmd(0x0C);  // D=1, C=0, B=0
-    msleep(1);  // 1ms delay
-	send_cmd(0x02);  // return to home
-    msleep(1);  // 1ms delay
-	printk(KERN_INFO "st7920: glcd initialized\n");
-	//screen_test();
+    printk("st7920: Initializing lcd\n");
+    gpio_set_value(rs_pin, 0); //   self.write_pin(false);  // RESET=0
+    msleep(10);                // wait for 10ms
+    gpio_set_value(rs_pin, 1); // RESET=1
+    msleep(50);                // wait for >40 ms
+    send_cmd(0x30);            // 8bit mode
+    usleep_range(110, 120);    //  >100us delay
+    send_cmd(0x30);            // 8bit mode
+    usleep_range(40, 50);      // >37us delay
+    send_cmd(0x08);            // D=0, C=0, B=0
+    fsleep(110);               // >100us delay
+    send_cmd(0x01);            // clear screen
+    msleep(12);                // >10 ms delay
+    send_cmd(0x06);            // cursor increment right no shift
+    msleep(1);                 // 1ms delay
+    send_cmd(0x0C);            // D=1, C=0, B=0
+    msleep(1);                 // 1ms delay
+    send_cmd(0x02);            // return to home
+    msleep(1);                 // 1ms delay
+    printk(KERN_INFO "st7920: glcd initialized\n");
+    // screen_test();
 }
 
-static void clear_screen(void){
-	for(int i=0;i<1042;i++)
-	{
-		graphic_buffer[i] = 0x00;
-	}
+static void clear_screen(void)
+{
+    u8 nulled_fb[64][128];
+    u8 nulled_graphic_buffer[1042];
+
+    memcpy(fb, nulled_fb, sizeof(fb));
+    memcpy(graphic_buffer, nulled_graphic_buffer, sizeof(graphic_buffer));
+
+    /*
+    for (int i = 0; i < 1042; i++)
+    {
+        graphic_buffer[i] = 0x00;
+    }
     zip_pixels();
-	draw_fb();
+    */
+    draw_fb();
 }
 static void set_graphic_mode(void)
 {
-	printk(KERN_INFO "st7920: switching to graphic mode");
-	send_cmd(0x30);  // 8 bit mode
-    msleep (1);
-    send_cmd(0x34);  // switch to Extended instructions
-    msleep (1);
-    send_cmd(0x36);  // enable graphics
-    msleep (1);
+    printk(KERN_INFO "st7920: switching to graphic mode");
+    send_cmd(0x30); // 8 bit mode
+    msleep(1);
+    send_cmd(0x34); // switch to Extended instructions
+    msleep(1);
+    send_cmd(0x36); // enable graphics
+    msleep(1);
 }
 
-static void block_write(void){
-
-for (int y=0;y<32;y++)
+static void block_write(void)
 {
-	send_cmd(0x80 | y);	// Vertical coordinate of the screen is specified first. (0-31)
-	send_cmd(0x80 | 0);	// Then horizontal coordinate of the screen is specified. (0-8)
-	for(int x=0;x<16;x++)
-	{
-	send_data(graphic_buffer[x+y*16]); // y
-	}
-	for(int x=0;x<16;x++)
-	{
-	send_data(graphic_buffer[x+y*16+512]); // y
-	}
+
+    for (int y = 0; y < 32; y++)
+    {
+        send_cmd(0x80 | y); // Vertical coordinate of the screen is specified first. (0-31)
+        send_cmd(0x80 | 0); // Then horizontal coordinate of the screen is specified. (0-8)
+        for (int x = 0; x < 16; x++)
+        {
+            send_data(graphic_buffer[x + y * 16]); // y
+        }
+        for (int x = 0; x < 16; x++)
+        {
+            send_data(graphic_buffer[x + y * 16 + 512]); // y
+        }
+    }
 }
 
-}
-
-
-static void screen_test(void){
-	printk("st7920: testing screen");
-	zip_pixels();
-	draw_fb();	
-}
-
-static void set_pixel(u8 x, u8 y,u8 set)
+static void screen_test(void)
 {
-fb[y][x]= set;
+    printk("st7920: testing screen");
+    // glcd_printf("HELLO WORLD",0,0);
+    // glcd_printf("oh boy\r\nits really\r\nhot in here",1,2);
+    zip_pixels();
+    draw_fb();
+}
+
+static void set_pixel(u8 x, u8 y, u8 set)
+{
+    fb[y][x] = set;
 }
 
 static void draw_fb(void)
 {
-	block_write();
+    block_write();
 }
 
 // Put each 8 pixels into one buffer-byte
-static void zip_pixels(){
-	u8 lowbyte= 0,highbyte=0;
+static void zip_pixels()
+{
+    u8 lowbyte = 0, highbyte = 0;
 
-    for (int y=0;y<64;y++) 
+    for (int y = 0; y < 64; y++)
     {
-		// Durchlauf 0: Bits 0-7
-		// Durchlauf 1: Bits 0-8
-		for(int it=0;it<8;it++) // 16 byte pro zeile
-		{
-			// Bits [0..7]
-			for(int bit_position=0;bit_position<8;bit_position++)
-			{
-				lowbyte |= (fb[y][it*16+bit_position] << (7-bit_position));
-			}
-			// Bits [8..15]
-			for(int bit_position=8;bit_position<16;bit_position++)
-			{
-				highbyte |= (fb[y][it*16+8+(bit_position-8)] << (15-bit_position));
-			}
-		
-			graphic_buffer[y*16+it*2] = lowbyte;
-			graphic_buffer[y*16+it*2+1] = highbyte;
-			lowbyte = 0x00;
-			highbyte = 0x00;
-		}
-    } 
+        // Durchlauf 0: Bits 0-7
+        // Durchlauf 1: Bits 0-8
+        for (int it = 0; it < 8; it++) // 16 byte pro zeile
+        {
+            // Bits [0..7]
+            for (int bit_position = 0; bit_position < 8; bit_position++)
+            {
+                lowbyte |= (fb[y][it * 16 + bit_position] << (7 - bit_position));
+            }
+            // Bits [8..15]
+            for (int bit_position = 8; bit_position < 16; bit_position++)
+            {
+                highbyte |= (fb[y][it * 16 + 8 + (bit_position - 8)] << (15 - bit_position));
+            }
 
+            graphic_buffer[y * 16 + it * 2] = lowbyte;
+            graphic_buffer[y * 16 + it * 2 + 1] = highbyte;
+            lowbyte = 0x00;
+            highbyte = 0x00;
+        }
+    }
 }
 
-static void alloc_char(char c,unsigned int x, unsigned int y)
+static void alloc_char(char c, unsigned int x, unsigned int y)
 {
-	u8 glyph;
-	for(int row=0;row<MAX_ROW;row++)
-	{
-		glyph = font[c][row];
-		for(int pixel=START_PIXEL;pixel<8;pixel++)
-		{
-			set_pixel(x*CHAR_WIDTH+pixel,y*8+row,CHECK_BIT(glyph,pixel)?(1):(0)); // if pixel is set, set pixel in fb
-		}
-	}
+    u8 glyph;
+    for (int row = 0; row < MAX_ROW; row++)
+    {
+        glyph = font[c][row];
+        for (int pixel = START_PIXEL; pixel < 8; pixel++)
+        {
+            set_pixel(x * CHAR_WIDTH + pixel, y * 8 + row,
+                      CHECK_BIT(glyph, pixel) ? (1) : (0)); // if pixel is set, set pixel in fb
+        }
+    }
 }
 
-static void glcd_printf(char * msg, unsigned int lineNumber,unsigned int nthCharacter)
+static void glcd_printf(char *msg, unsigned int lineNumber, unsigned int nthCharacter)
 {
+    printk("Printing %s @ x=%i y=%i", msg, nthCharacter, lineNumber);
     u8 charcnt = 0;
-	u8 row_offset = 0;
-	u8 cnt =-1 ;
-    while(msg[charcnt] !=  '\0')
+    u8 row_offset = 0;
+    u8 cnt = -1;
+    while (msg[charcnt] != '\0')
     {
-	   cnt++;
+        cnt++;
 
-		if(msg[charcnt] == '\n')
-		{
-			row_offset++; 
-			cnt--; // Don't advance 8 horizontal pixels in the next row!
-		}
-		else if(msg[charcnt] == '\r')
-		{
-			cnt=-1; 
-		}
-		else
-		{
-			alloc_char(msg[charcnt],cnt,lineNumber+row_offset);
-		}
-		   charcnt++;
-	}
+        if (msg[charcnt] == '\n')
+        {
+            row_offset++;
+            cnt--; // Don't advance 8 horizontal pixels in the next row!
+        }
+        else if (msg[charcnt] == '\r')
+        {
+            cnt = -1;
+        }
+        else
+        {
+            alloc_char(msg[charcnt], cnt + nthCharacter, lineNumber + row_offset);
+        }
+        charcnt++;
+    }
+    zip_pixels();
+    draw_fb();
 }
 
+void print_bitmap(char *bmp, int size)
+{
+    memcpy(graphic_buffer, bmp, 1042);
+    draw_fb();
+}
+
+void set_backlight(u8 on)
+{
+    u8 buffer[3];
+    buffer[0] = 0x34;
+    buffer[1] = 0x01;
+    // buffer[2] = (cmd << 4) & 0xf0;
+    buffer[2] = 0x08;
+    // 0x034 0x001
+    gpio_set_value(rs_pin, 1);
+    if (spi_write(device, buffer, 3) < 0)
+    {
+        printk(KERN_ERR "st7920: Error: Failed to transmit cmd!\n");
+    }
+    gpio_set_value(rs_pin, 0);
+}
 /***  File Operations ****/
-static int glcd_open(struct inode *p_inode, struct file *p_file )
+static int glcd_open(struct inode *p_inode, struct file *p_file)
 {
-	printk(KERN_INFO "glcd Driver: open()\n");
-	return 0;
+    printk(KERN_INFO "glcd Driver: open()\n");
+    return 0;
 }
-static int glcd_close(struct inode *p_inode, struct file *p_file )
+static int glcd_close(struct inode *p_inode, struct file *p_file)
 {
-	printk(KERN_INFO "glcd Driver: close()\n\n");
-	return 0;
+    printk(KERN_INFO "glcd Driver: close()\n\n");
+    return 0;
 }
 static ssize_t glcd_read(struct file *p_file, char __user *buf, size_t len, loff_t *off)
 {
-	printk(KERN_INFO "glcd Driver: read()\n");
-	return 0;
+    printk(KERN_INFO "glcd Driver: read()\n");
+    return 0;
 }
 static ssize_t glcd_write(struct file *p_file, const char __user *buf, size_t len, loff_t *off)
 {
-	
-	char kbuf[MAX_BUF_LENGTH];
-	unsigned long copyLength;
 
-	if( buf == NULL){
-		printk( KERN_DEBUG "ERR: Empty user space buffer \n" );
-		return -ENOMEM;
-	}
+    char kbuf[MAX_BUF_LENGTH];
+    unsigned long copyLength;
 
-	memset( kbuf, '\0', sizeof(char) * MAX_BUF_LENGTH );
-	copyLength = MIN( (MAX_BUF_LENGTH-1), (unsigned long) (len-1) );
+    if (buf == NULL)
+    {
+        printk(KERN_DEBUG "ERR: Empty user space buffer \n");
+        return -ENOMEM;
+    }
 
-	if(copyLength < 0)
-		copyLength = 0;
+    memset(kbuf, '\0', sizeof(char) * MAX_BUF_LENGTH);
+    copyLength = MIN((MAX_BUF_LENGTH - 1), (unsigned long)(len - 1));
 
-	// Copy user space buffer to kernel space buffer
-	if( copy_from_user(&kbuf, buf, copyLength ) ){
-		printk( KERN_DEBUG "ERR: Failed to copy from user space buffer \n" );
-		return -EFAULT;
-	}
+    if (copyLength < 0)
+        copyLength = 0;
 
-	printk( KERN_INFO "***** value copied from user space:  %s *****\n", kbuf );
-	printk( KERN_INFO "***** copyLength:  %lu *****\n", copyLength );
-	
-	// clear display
+    // Copy user space buffer to kernel space buffer
+    if (copy_from_user(&kbuf, buf, copyLength))
+    {
+        printk(KERN_DEBUG "ERR: Failed to copy from user space buffer \n");
+        return -EFAULT;
+    }
 
-	// print on the first line by default
-	glcd_printf(kbuf,0,0);
-	zip_pixels();
-	draw_fb();
-	printk(KERN_INFO "glcd Driver: write()\n");
-	return len;
+    printk(KERN_INFO "***** value copied from user space:  %s *****\n", kbuf);
+    printk(KERN_INFO "***** copyLength:  %lu *****\n", copyLength);
+
+    // clear display
+
+    // print on the first line by default
+    glcd_printf(kbuf, 0, 0);
+    zip_pixels();
+    draw_fb();
+    printk(KERN_INFO "glcd Driver: write()\n");
+    return len;
 }
 
-static long glcd_ioctl( struct file *p_file, unsigned int ioctl_command, unsigned long arg)
+static long glcd_ioctl(struct file *p_file, unsigned int ioctl_command, unsigned long arg)
 {
 
-	struct ioctl_mesg ioctl_arguments;
+    struct ioctl_mesg ioctl_arguments;
 
-	printk(KERN_INFO "glcd Driver: ioctl\n");
-      	
-	if( ((const void *)arg) == NULL){
-		printk( KERN_DEBUG "ERR: Invalid argument for glcd IOCTL \n");
-		return -EINVAL;
-	}
+    printk(KERN_INFO "glcd Driver: ioctl\n");
 
-	memset( ioctl_arguments.kbuf, '\0', sizeof(char) * MAX_BUF_LENGTH );
+    if (((const void *)arg) == NULL)
+    {
+        printk(KERN_DEBUG "ERR: Invalid argument for glcd IOCTL \n");
+        return -EINVAL;
+    }
 
-	// copy ioctl command argument from user space
-	if( copy_from_user( &ioctl_arguments, (const void *)arg, sizeof(ioctl_arguments) ) ){
-		printk( KERN_DEBUG "ERR: Failed to copy from user space buffer \n" );
-		return -EFAULT;
-	}
+    memset(ioctl_arguments.kbuf, '\0', sizeof(char) * MAX_BUF_LENGTH);
 
-	switch( (char) ioctl_command ){
-		case IOCTL_CLEAR_DISPLAY:
-			clear_screen();
-			break;
+    // copy ioctl command argument from user space
+    if (copy_from_user(&ioctl_arguments, (const void *)arg, sizeof(ioctl_arguments)))
+    {
+        printk(KERN_DEBUG "ERR: Failed to copy from user space buffer \n");
+        return -EFAULT;
+    }
 
-		case IOCTL_PRINT:
-			printk("st7920: ioctl_print");
-			glcd_printf( ioctl_arguments.kbuf,0,0);
-			break;
+    switch ((char)ioctl_command)
+    {
+    case IOCTL_CLEAR_DISPLAY:
+        printk("st7920: ioctl_clear_display");
+        clear_screen();
+        break;
 
-		case IOCTL_PRINT_WITH_POSITION:
-			printk("st7920: ioctl_print_w_position");
-			glcd_printf(ioctl_arguments.kbuf, ioctl_arguments.lineNumber,ioctl_arguments.nthCharacter);
-			break;
+    case IOCTL_PRINT:
+        printk("st7920: ioctl_print");
+        glcd_printf(ioctl_arguments.kbuf, 0, 0);
+        break;
 
-		default:
-			printk(KERN_DEBUG "glcd Driver (ioctl): No such command \n");
-			return -ENOTTY;
-	}
-	return 0;
+    case IOCTL_PRINT_WITH_POSITION:
+        printk("st7920: ioctl_print_w_position x=%i y=%i str=%s", ioctl_arguments.nthCharacter,
+               ioctl_arguments.lineNumber, ioctl_arguments.kbuf);
+        glcd_printf(ioctl_arguments.kbuf, ioctl_arguments.lineNumber, ioctl_arguments.nthCharacter);
+        break;
+
+    case IOCTL_PRINT_BMP:
+        printk("st7920: ioctl_bmp");
+        print_bitmap(ioctl_arguments.kbuf, 1042);
+        break;
+
+    case IOCTL_RESET:
+        init_lcd();
+        printk("st7920: ioctl_reset");
+        break;
+
+    case IOCTL_BACKLIGHT_ON:
+        printk("ioctl_backlight_on");
+        set_backlight(1);
+        break;
+
+    case IOCTL_BACKLIGHT_OFF:
+        printk("ioctl_backlight_off");
+        set_backlight(0);
+    default:
+        printk(KERN_DEBUG "glcd Driver (ioctl): %c No such command \n,ioctl_command");
+        return -ENOTTY;
+    }
+    return 0;
 }
 /* This will create the init and exit function automatically */
 module_spi_driver(graphic_display);
