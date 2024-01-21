@@ -1,5 +1,0 @@
-if(EXISTS "/home/kai/kmod/st7920/demo/build/glcdctrl-test[1]_tests.cmake")
-  include("/home/kai/kmod/st7920/demo/build/glcdctrl-test[1]_tests.cmake")
-else()
-  add_test(glcdctrl-test_NOT_BUILT glcdctrl-test_NOT_BUILT)
-endif()

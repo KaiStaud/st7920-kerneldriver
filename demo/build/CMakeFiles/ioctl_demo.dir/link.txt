@@ -1,1 +1,0 @@
-/usr/bin/c++ -g -O2 -ffile-prefix-map=/home/kai/kmod/st7920=. -fstack-protector-strong -Wformat -Werror=format-security -Wl,-z,relro CMakeFiles/ioctl_demo.dir/main.cpp.o "CMakeFiles/ioctl_demo.dir/bmp-parser.cpp.o" CMakeFiles/ioctl_demo.dir/emulator.cpp.o -o ioctl_demo 

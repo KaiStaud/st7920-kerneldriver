@@ -1,5 +1,0 @@
-add_test([=[Parser.GetBytes]=]  /home/kai/kmod/st7920/demo/build/glcdctrl-test [==[--gtest_filter=Parser.GetBytes]==] --gtest_also_run_disabled_tests)
-set_tests_properties([=[Parser.GetBytes]=]  PROPERTIES WORKING_DIRECTORY /home/kai/kmod/st7920/demo/build SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
-add_test([=[HelloTest.BasicAssertions]=]  /home/kai/kmod/st7920/demo/build/glcdctrl-test [==[--gtest_filter=HelloTest.BasicAssertions]==] --gtest_also_run_disabled_tests)
-set_tests_properties([=[HelloTest.BasicAssertions]=]  PROPERTIES WORKING_DIRECTORY /home/kai/kmod/st7920/demo/build SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
-set(  glcdctrl-test_TESTS Parser.GetBytes HelloTest.BasicAssertions)
