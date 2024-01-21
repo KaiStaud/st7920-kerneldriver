@@ -1,2 +1,2 @@
-demo/build/lcdctrl-demo /usr/bin
-demo/build/lcdctrl-test /usr/bin
+demo/build/ioctl_demo /usr/bin
+demo/build/glcdctrl-test /usr/bin

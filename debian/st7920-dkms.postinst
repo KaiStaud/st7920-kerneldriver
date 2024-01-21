@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+#DEBHELPER#
+
+sudo dkms add -m st7920 -v 0.1
+sudo dkms build -m st7920 -v 0.1
+sudo dkms install -m st7920 -v 0.1
+
+depmod -a

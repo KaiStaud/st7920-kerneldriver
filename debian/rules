@@ -2,7 +2,12 @@
 
 %:
 	dh $@
+	git config --global --add safe.directory /home/kai/kmod/st7920 
 
 override_dh_auto_build:
-	cmake -Bdemo/build
-	cmake --build demo/build
+	cd demo && cmake -Bbuild
+	cd demo/build &&cmake --build .
+
+override_dh_auto_clean:
+
+override_dh_auto_install:

@@ -2,7 +2,7 @@ Source: st7920
 Section: misc
 Priority: optional
 Maintainer: Kai Staud <kai-staud@web.de>
-Build-Depends: debhelper (>= 11), dkms,git,cmake,make,debhelper-compat (=13),libtest-dev,libgmock-dev
+Build-Depends: debhelper (>= 11), dkms,git,cmake,make,debhelper-compat (=13),libgtest-dev,libgmock-dev
 Standards-Version: 3.9.8
 
 Package: st7920-dkms

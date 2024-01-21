@@ -1,0 +1,5 @@
+/home/kai/kmod/st7920/demo/build/CMakeFiles/ioctl_demo.dir
+/home/kai/kmod/st7920/demo/build/CMakeFiles/glcdctrl-test.dir
+/home/kai/kmod/st7920/demo/build/CMakeFiles/test.dir
+/home/kai/kmod/st7920/demo/build/CMakeFiles/edit_cache.dir
+/home/kai/kmod/st7920/demo/build/CMakeFiles/rebuild_cache.dir

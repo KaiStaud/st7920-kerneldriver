@@ -1,10 +1,10 @@
-st7920 (1.0.1) UNRELEASED; urgency=medium
+st7920 (0.1) UNRELEASED; urgency=medium
 
   * 
 
  -- Kai Staud <kai-staud@web.de>  Sat, 13 Jan 2024 16:29:09 +0100
 
-st7920 (1.0-1) unstable; urgency=low
+st7920 (0.0) unstable; urgency=low
 
   * Initial release
 
