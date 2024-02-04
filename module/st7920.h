@@ -17,9 +17,9 @@ void print_bitmap(char *bmp, int size);
 static void set_pixel(u8 x, u8 y, u8 set);
 static void draw_fb(void);
 static void zip_pixels(void);
-static void alloc_char(char c, unsigned int x, unsigned int y);
+static void alloc_char(char c, unsigned int x, unsigned int y,unsigned int invert);
 /* helper syscall functions  */
-static void glcd_printf(char *msg, unsigned int lineNumber, unsigned int nthCharacter);
+static void glcd_printf(char *msg, unsigned int lineNumber, unsigned int nthCharacter,unsigned int invert);
 static int glcd_open(struct inode *p_inode, struct file *p_file);
 static int glcd_close(struct inode *p_inode, struct file *p_file);
 static ssize_t glcd_write(struct file *p_file, const char __user *buf, size_t len, loff_t *off);
@@ -53,6 +53,7 @@ struct ioctl_mesg
     unsigned int lineNumber;
     unsigned int nthCharacter;
     unsigned int nbytes;
+    unsigned int invert;
 };
 
 // ********* Device Structures *********************************************************************

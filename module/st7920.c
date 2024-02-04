@@ -310,7 +310,7 @@ static void zip_pixels()
     }
 }
 
-static void alloc_char(char c, unsigned int x, unsigned int y)
+static void alloc_char(char c, unsigned int x, unsigned int y,unsigned int invert)
 {
     u8 glyph;
     for (int row = 0; row < MAX_ROW; row++)
@@ -318,13 +318,21 @@ static void alloc_char(char c, unsigned int x, unsigned int y)
         glyph = font[c][row];
         for (int pixel = START_PIXEL; pixel < 8; pixel++)
         {
+            if(invert)
+            {
+            set_pixel(x * CHAR_WIDTH + pixel, y * 8 + row,
+                      CHECK_BIT(glyph, pixel) ? (0) : (1)); // if pixel is set, set pixel in fb
+            }
+            else
+            {
             set_pixel(x * CHAR_WIDTH + pixel, y * 8 + row,
                       CHECK_BIT(glyph, pixel) ? (1) : (0)); // if pixel is set, set pixel in fb
+            }
         }
     }
 }
 
-static void glcd_printf(char *msg, unsigned int lineNumber, unsigned int nthCharacter)
+static void glcd_printf(char *msg, unsigned int lineNumber, unsigned int nthCharacter,unsigned int invert)
 {
     printk("Printing %s @ x=%i y=%i", msg, nthCharacter, lineNumber);
     u8 charcnt = 0;
@@ -345,7 +353,7 @@ static void glcd_printf(char *msg, unsigned int lineNumber, unsigned int nthChar
         }
         else
         {
-            alloc_char(msg[charcnt], cnt + nthCharacter, lineNumber + row_offset);
+            alloc_char(msg[charcnt], cnt + nthCharacter, lineNumber + row_offset,invert);
         }
         charcnt++;
     }
@@ -421,7 +429,7 @@ static ssize_t glcd_write(struct file *p_file, const char __user *buf, size_t le
     // clear display
 
     // print on the first line by default
-    glcd_printf(kbuf, 0, 0);
+    glcd_printf(kbuf, 0, 0,0);
     zip_pixels();
     draw_fb();
     printk(KERN_INFO "glcd Driver: write()\n");
@@ -459,13 +467,13 @@ static long glcd_ioctl(struct file *p_file, unsigned int ioctl_command, unsigned
 
     case IOCTL_PRINT:
         printk("st7920: ioctl_print");
-        glcd_printf(ioctl_arguments.kbuf, 0, 0);
+        glcd_printf(ioctl_arguments.kbuf, 0, 0,ioctl_arguments.invert);
         break;
 
     case IOCTL_PRINT_WITH_POSITION:
         printk("st7920: ioctl_print_w_position x=%i y=%i str=%s", ioctl_arguments.nthCharacter,
                ioctl_arguments.lineNumber, ioctl_arguments.kbuf);
-        glcd_printf(ioctl_arguments.kbuf, ioctl_arguments.lineNumber, ioctl_arguments.nthCharacter);
+        glcd_printf(ioctl_arguments.kbuf, ioctl_arguments.lineNumber, ioctl_arguments.nthCharacter,ioctl_arguments.invert);
         break;
 
     case IOCTL_PRINT_BMP:
